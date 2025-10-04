@@ -1,0 +1,38 @@
+name: Self-Healing Demo
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  self-heal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Healing Agent Simulation
+        run: python -c "
+from agents.monitor_agent import MonitorAgent
+from agents.diagnose_agent import DiagnoseAgent
+from agents.remediate_agent import RemediateAgent
+
+monitor = MonitorAgent()
+diagnose = DiagnoseAgent()
+remediate = RemediateAgent()
+
+log = monitor.get_logs()
+issue = diagnose.analyze(log)
+result = remediate.remediate(issue)
+print(f'Diagnosis: {issue}, Action: {result}')
+"

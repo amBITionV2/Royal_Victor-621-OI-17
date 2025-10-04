@@ -1,0 +1,3 @@
+2024-01-01T00:00:00Z service=payments level=ERROR message="Timeout connecting to database"
+2024-01-01T00:00:05Z service=payments level=ERROR message="Circuit breaker tripped"
+2024-01-01T00:00:10Z service=payments level=WARN message="Retry scheduled"

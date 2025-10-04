@@ -1,0 +1,23 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_id:
+        description: Incident identifier triggering the rollback
+        required: true
+      parameters:
+        description: JSON encoded parameters payload
+        required: false
+        default: "{}"
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Rollback service
+        run: |
+          echo "Rolling back deployment for incident ${{ github.event.inputs.incident_id }}"
+          # TODO: Add rollback logic (e.g., helm rollback)

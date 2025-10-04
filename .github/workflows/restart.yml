@@ -1,0 +1,23 @@
+name: Restart Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_id:
+        description: Incident identifier triggering the restart
+        required: true
+      parameters:
+        description: JSON encoded parameters payload
+        required: false
+        default: "{}"
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Restart service
+        run: |
+          echo "Restarting service for incident ${{ github.event.inputs.incident_id }}"
+          # TODO: Add restart logic (e.g., kubectl rollout restart)

@@ -1,0 +1,70 @@
+
+* Natural Language Control Interface
+
+Add a chat panel in the Streamlit UI where users can type:
+
+“HealOps, check if my EC2 app is healthy.”
+“Why did latency spike yesterday?”
+“Restart the service if CPU is above 90%.”
+
+Use Gemini for parsing → map intent → run corresponding API calls or workflows.
+
+
+
+
+
+//Long Term Plan
+* Add Predictive Healing (not just reactive)
+
+Right now: HealOps fixes problems after they occur
+Upgrade: Make it predict problems before they occur.
+
+How:
+
+Train a simple model (or use heuristic rules) to forecast anomalies in latency/error rate trends.
+
+If error rate trend ↑ 20% in 5 mins → create a “pre-incident” alert.
+
+Display: “⚠️ Likely CPU overload in 3 mins — auto-scaling recommended.”
+
+📈 USP keyword: “Predictive AIOps”
+No one else in hackathons usually shows that.
+
+
+
+
+
+
+* Incident Knowledge Base (Memory)
+
+Store every incident + RCA + fix result.
+
+Next time a similar issue occurs → HealOps auto-suggests based on past context:
+
+“This looks like incident #42 (DB timeout). Last time, a rollback fixed it.”
+
+You can keep this as a simple SQLite or JSON log at first.
+
+🧩 Adds learning capability to your system.
+
+* Integrate Cloud Cost & Impact Awareness
+
+Before executing a fix, HealOps can estimate cost or risk:
+
+“Scaling up will add ~$0.04/hour — proceed?”
+“Rollback may affect 3 dependent services.”
+
+Simple heuristics or LLM-based explanation = huge differentiator.
+
+
+
+
+* Simulated Fault Injection
+
+Add a “🧨 Inject Fault” button in your dashboard:
+
+Temporarily fake a degraded health state.
+
+Let judges see HealOps detect, diagnose, and fix — live in front of them.
+
+This makes your demo dynamic and self-contained.

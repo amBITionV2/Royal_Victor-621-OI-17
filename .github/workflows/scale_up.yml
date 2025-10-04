@@ -1,0 +1,23 @@
+name: Scale Service Up
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_id:
+        description: Incident identifier triggering the scale-up
+        required: true
+      parameters:
+        description: JSON encoded parameters payload
+        required: false
+        default: "{}"
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Scale service
+        run: |
+          echo "Scaling service for incident ${{ github.event.inputs.incident_id }}"
+          # TODO: Add scaling logic (e.g., kubectl scale)

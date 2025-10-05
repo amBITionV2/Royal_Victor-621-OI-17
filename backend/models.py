@@ -78,6 +78,22 @@ class FaultInjectionState(BaseModel):
     overlay: dict[str, Any] = Field(default_factory=dict)
 
 
+class AssistantRequest(BaseModel):
+    """Natural-language assistant request payload."""
+
+    message: str
+
+
+class AssistantResponse(BaseModel):
+    """Response returned by the conversational assistant."""
+
+    intent: str
+    message: str
+    confidence: float = 0.0
+    took_action: bool = False
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
 class PredictiveForecast(BaseModel):
     """Summarizes a projected metric breach within the forecast horizon."""
 

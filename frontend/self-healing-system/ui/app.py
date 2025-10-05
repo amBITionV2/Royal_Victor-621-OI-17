@@ -16,7 +16,7 @@ AUTO_REFRESH_MS = int(os.getenv("UI_AUTO_REFRESH_MS", "3000"))
 if AUTO_REFRESH_MS > 0:
     st_autorefresh(interval=AUTO_REFRESH_MS, key="live_health_refresh")
 
-BACKEND_URL = os.getenv("AUTOMEDIC_BACKEND_URL", "http://localhost:4000").rstrip("/")
+BACKEND_URL = os.getenv("AUTOMEDIC_BACKEND_URL", "http://localhost:8000").rstrip("/")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "youruser/AutoMedic-backend")
 GITHUB_TOKEN = os.getenv("GH_PAT") or os.getenv("GITHUB_TOKEN")
 GITHUB_ACTIONS_URL = f"https://github.com/{GITHUB_REPO}/actions"
@@ -52,6 +52,20 @@ FAULT_PROFILE_LABELS = {
     "total_outage": "Total outage",
 }
 
+SETTINGS_DEFAULTS = {
+    "settings_service": "demo-api",
+    "settings_namespace": "default",
+    "settings_region": "ap-south-1",
+    "settings_host_port": "8080",
+    "settings_container_port": "80",
+    "settings_auto_low_risk": True,
+    "settings_conf_thresh": 0.7,
+    "settings_predictive_enabled": True,
+}
+
+for key, default_value in SETTINGS_DEFAULTS.items():
+    st.session_state.setdefault(key, default_value)
+
 
 # --- Session State bootstrap -------------------------------------------------
 if "incidents" not in st.session_state:
@@ -67,6 +81,10 @@ if "auto_orchestrator" not in st.session_state:
 else:
     st.session_state.auto_orchestrator.setdefault("incident_id", None)
     st.session_state.auto_orchestrator.setdefault("armed", False)
+if "assistant_chat" not in st.session_state:
+    st.session_state.assistant_chat: list[dict[str, Any]] = []
+if "sidebar_tab" not in st.session_state:
+    st.session_state.sidebar_tab = "Settings"
 
 
 # --- Helpers -----------------------------------------------------------------
@@ -88,6 +106,13 @@ def backend_request(method: str, path: str, **kwargs: Any) -> tuple[bool, Option
         return False, None, f"{exc.response.status_code if exc.response else 'HTTP'}: {detail}"
     except requests.RequestException as exc:
         return False, None, str(exc)
+
+
+def rerun_app() -> None:
+    if hasattr(st, "rerun"):
+        st.rerun()
+    elif hasattr(st, "experimental_rerun"):
+        st.experimental_rerun()
 
 
 def add_activity(message: str, status: Optional[str] = None, details: Optional[str] = None) -> None:
@@ -275,6 +300,61 @@ def get_predictions() -> list[Dict[str, Any]]:
         add_activity("Prediction fetch failed", "error", error)
         st.error(f"Failed to fetch predictions: {error}")
     return []
+
+
+def run_assistant_command(message: str) -> Optional[Dict[str, Any]]:
+    payload = {"message": message}
+    ok, data, error = backend_request("POST", "/assistant", json=payload, timeout=30)
+    if ok:
+        return data or {}
+    add_activity("Assistant command failed", "error", error)
+    st.error(f"Assistant error: {error}")
+    return None
+
+
+def assistant_chat_area() -> None:
+    chat_container = st.container()
+    history = st.session_state.assistant_chat[-20:]
+    if not history:
+        chat_container.info("Ask about health, incidents, or tell AutoMedic to restart services.")
+    for entry in history:
+        role = entry.get("role", "assistant")
+        speaker = "You" if role == "user" else "HealOps"
+        content = entry.get("content", "")
+        chat_container.markdown(f"**{speaker}:** {content}")
+        if role != "user":
+            context = entry.get("context")
+            if context:
+                with chat_container.expander("Assistant context", expanded=False):
+                    st.json(context)
+
+    with st.form("assistant_chat_form", clear_on_submit=True):
+        user_input = st.text_area(
+            "Message",
+            key="assistant_input",
+            placeholder="e.g. HealOps, check if my EC2 app is healthy",
+            height=80,
+        )
+        submitted = st.form_submit_button("Send", use_container_width=True)
+
+    if submitted:
+        message = (user_input or "").strip()
+        if message:
+            st.session_state.assistant_chat.append({"role": "user", "content": message})
+            reply = run_assistant_command(message)
+            if reply is not None:
+                response_entry = {
+                    "role": "assistant",
+                    "content": reply.get("message", "(no response)"),
+                    "context": reply.get("context"),
+                    "intent": reply.get("intent"),
+                    "confidence": reply.get("confidence"),
+                }
+                if reply.get("took_action"):
+                    detail = reply.get("context", {}).get("message") or "Restart workflow dispatched"
+                    add_activity("Assistant action", "success", detail)
+                st.session_state.assistant_chat.append(response_entry)
+        rerun_app()
 
 
 def format_eta(seconds: Optional[int]) -> str:
@@ -535,34 +615,64 @@ st.divider()
 
 # --- Sidebar -----------------------------------------------------------------
 with st.sidebar:
-    st.header("Settings")
-    service = st.text_input("Service", "demo-api")
-    namespace = st.text_input("Namespace", "default")
-    region = st.text_input("Region", "ap-south-1")
-    host_port = st.text_input("Host port", "8080")
-    container_port = st.text_input("Container port", "80")
+    tab_choice = st.radio("Sidebar", ("Chat", "Settings"), index=0 if st.session_state.sidebar_tab == "Chat" else 1)
+    st.session_state.sidebar_tab = tab_choice
 
-    auto_low_risk = st.toggle("Auto-run low-risk fixes", True)
-    conf_thresh = st.slider("Min confidence for auto-run", 0.0, 1.0, 0.7, 0.05)
-    predictive_enabled = st.toggle("Enable Predictive Healing", True, key="predictive_toggle")
+    if tab_choice == "Chat":
+        st.header("🗣️ Assistant")
+        assistant_chat_area()
+    else:
+        st.header("Settings")
+        st.text_input("Service", key="settings_service")
+        st.text_input("Namespace", key="settings_namespace")
+        st.text_input("Region", key="settings_region")
+        st.text_input("Host port", key="settings_host_port")
+        st.text_input("Container port", key="settings_container_port")
 
-    st.divider()
-    st.header("📋 Activity Feed")
-    for entry in reversed(st.session_state.activity_feed[-12:]):
-        st.write(f"**{entry['time']}** — {entry['message']}")
-        detail = entry.get("details")
-        if detail:
-            if entry.get("status") == "success":
-                st.success(detail)
-            elif entry.get("status") == "error":
-                st.error(detail)
-            else:
-                st.info(detail)
+        st.toggle(
+            "Auto-run low-risk fixes",
+            value=st.session_state["settings_auto_low_risk"],
+            key="settings_auto_low_risk",
+        )
+        st.slider(
+            "Min confidence for auto-run",
+            min_value=0.0,
+            max_value=1.0,
+            step=0.05,
+            value=st.session_state["settings_conf_thresh"],
+            key="settings_conf_thresh",
+        )
+        st.toggle(
+            "Enable Predictive Healing",
+            value=st.session_state["settings_predictive_enabled"],
+            key="settings_predictive_enabled",
+        )
+
+        st.divider()
+        st.header("📋 Activity Feed")
+        for entry in reversed(st.session_state.activity_feed[-12:]):
+            st.write(f"**{entry['time']}** — {entry['message']}")
+            detail = entry.get("details")
+            if detail:
+                if entry.get("status") == "success":
+                    st.success(detail)
+                elif entry.get("status") == "error":
+                    st.error(detail)
+                else:
+                    st.info(detail)
 
 
 # --- Live Health Panel -------------------------------------------------------
+service = st.session_state["settings_service"]
+namespace = st.session_state["settings_namespace"]
+region = st.session_state["settings_region"]
+host_port = st.session_state["settings_host_port"]
+container_port = st.session_state["settings_container_port"]
+auto_low_risk = bool(st.session_state["settings_auto_low_risk"])
+conf_thresh = float(st.session_state["settings_conf_thresh"])
+predictive_enabled = bool(st.session_state["settings_predictive_enabled"])
+
 st.subheader("Live Health")
-predictive_enabled = bool(st.session_state.get("predictive_toggle", True))
 predictions: list[Dict[str, Any]] = []
 
 fault_control_cols = st.columns([1.5, 1.0, 1.4])

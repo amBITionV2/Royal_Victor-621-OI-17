@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Load environment variables from .env file
 load_dotenv()
 
-from . import actions, models, predict_service, predictive, rca, watcher
+from . import actions, assistant, models, predict_service, predictive, rca, watcher
 from .health_probe import (
     aggregate,
     apply_fault_overlay,
@@ -149,3 +149,11 @@ def predict_metrics() -> list[models.PredictiveForecast]:
 
     forecasts = predict_service.predict_upcoming()
     return [models.PredictiveForecast(**forecast.to_dict()) for forecast in forecasts]
+
+
+@app.post("/assistant")
+def assistant_endpoint(request: models.AssistantRequest) -> models.AssistantResponse:
+    """Handle natural language requests via the conversational assistant."""
+
+    reply = assistant.handle_message(request.message)
+    return reply

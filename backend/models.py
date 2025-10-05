@@ -54,3 +54,38 @@ class ActionResponse(BaseModel):
     message: str
     run_url: Optional[str] = None
     details: dict[str, Any] = Field(default_factory=dict)
+
+
+FaultProfile = Literal["latency_spike", "error_burst", "total_outage"]
+
+
+class FaultInjectionRequest(BaseModel):
+    """Request payload for simulating a transient fault profile."""
+
+    profile: FaultProfile = "latency_spike"
+    duration_seconds: int = Field(default=45, ge=5, le=900)
+
+
+class FaultInjectionState(BaseModel):
+    """Current state of any active fault injection."""
+
+    active: bool
+    profile: Optional[FaultProfile] = None
+    profile_label: Optional[str] = None
+    remaining_seconds: int = 0
+    started_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    overlay: dict[str, Any] = Field(default_factory=dict)
+
+
+class PredictiveForecast(BaseModel):
+    """Summarizes a projected metric breach within the forecast horizon."""
+
+    metric: str
+    horizon_sec: int
+    predicted_value: float
+    crosses_threshold: bool
+    time_to_cross_sec: Optional[int] = None
+    confidence: float
+    slope: float
+    baseline: float

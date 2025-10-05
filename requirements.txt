@@ -1,7 +1,9 @@
 fastapi
 uvicorn
 google-generativeai
+numpy
 pydantic
 requests
 python-dotenv
 streamlit
+streamlit-autorefresh

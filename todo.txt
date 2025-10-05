@@ -47,6 +47,10 @@ You can keep this as a simple SQLite or JSON log at first.
 
 🧩 Adds learning capability to your system.
 
+
+
+
+
 * Integrate Cloud Cost & Impact Awareness
 
 Before executing a fix, HealOps can estimate cost or risk:
